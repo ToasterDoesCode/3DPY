@@ -11,13 +11,13 @@ vertices = []
 
 faces = []
 
-offset = 0
+offset = 0.01
 
 img = Image.new("RGB", (1920, 1080))
 draw = ImageDraw.Draw(img)
 
 # Camera
-focal_length = 2
+focal_length = 5
 
 # Open OBJ
 with open(path, "r") as f:
@@ -49,7 +49,7 @@ with open(path, "r") as f:
                 face.append(vertices[int(substring.split("/")[0]) - 1])
             faces.append(face)
 
-scale = 300
+scale = int(input("What scale?"))
 
 projected_faces = []
 
@@ -58,9 +58,9 @@ for face in faces:
     
     for vertex in face:
         
-        x = vertex[0]
-        y = vertex[1]
-        z = vertex[2]
+        x = vertex[0] + offset
+        y = vertex[1] + offset
+        z = vertex[2] + offset
         
         vertex_projected_screen = (((((focal_length * x) / (focal_length + z))) * scale) + 1920 / 2, (((focal_length * y) / (focal_length + z)) * scale + 1080 / 2))
         
@@ -102,9 +102,9 @@ projected_faces = sorted(projected_faces, key=lambda x:x[len(x) - 1], reverse=Tr
 for i in range(len(projected_faces)):
     projected_faces[i].pop(len(projected_faces[i]) - 1)
     
-    shade = int(i / len(projected_faces) * 255 + 10)
+    #shade = int(i / len(projected_faces) * 255 + 10)
     
-    draw.polygon(projected_faces[i], fill=(shade, shade, shade))
+    #draw.polygon(projected_faces[i], fill=(shade, shade, shade))
 
 # Render lines
 for face in projected_faces:
