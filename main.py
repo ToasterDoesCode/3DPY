@@ -97,12 +97,8 @@ def draw_frame(faces):
             x = vertex[0] + offset
             y = vertex[1] + offset
             z = vertex[2] + offset
-            
-            print(vertex)
-            
+
             vertex_projected_screen = (((((focal_length * x) / (focal_length + z))) * scale) + 1920 / 2, (((focal_length * y) / (focal_length + z)) * scale + 1080 / 2))
-            
-            print("Projected vertex: " + str(vertex_projected_screen))
             
             face_projected.append(vertex_projected_screen)
             
@@ -170,14 +166,14 @@ def rotate_object(axis, deg):
         face_rot = []
         
         for v in range(len(faces_obj[f])):
-            face_rot.append(rotate_vertex(faces_obj[f][v], "y", 20))
+            face_rot.append(rotate_vertex(faces_obj[f][v], axis, deg))
         faces_rot.append(face_rot)
     return faces_rot
 
 gif_frames = []
 
 for i in range(10):
-    gif_frames.append(draw_frame(rotate_object("z", i * (360 / 60))))
+    gif_frames.append(draw_frame(rotate_object("y", i * (360 / 60))))
 
 print(gif_frames)
 
