@@ -172,9 +172,11 @@ def rotate_object(axis, deg):
 
 gif_frames = []
 
-for i in range(10):
-    gif_frames.append(draw_frame(rotate_object("y", i * (360 / 60))))
+gif_fps = int(input("FPS?\n"))
 
-print(gif_frames)
+for i in range(gif_fps):
+    gif_frames.append(draw_frame(rotate_object("y", i * (360 / gif_fps))))
 
-gif_frames[0].save('out.gif', save_all=True, append_images=gif_frames[1:], duration=10, loop=0)
+
+
+gif_frames[0].save('out.gif', save_all=True, append_images=gif_frames[1:], duration= 1000/ gif_fps, loop=0)
