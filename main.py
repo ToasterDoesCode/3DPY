@@ -1,6 +1,8 @@
 # Imports
 from PIL import Image, ImageDraw, ImageOps
+from msvcrt import getch
 import math
+import pygame
 
 # Get OBJ path from user
 path = input("Please enter the path to the OBJ file you'd like to render: \n")
@@ -13,8 +15,13 @@ faces_obj = []
 
 offset = 0.01
 
-# Camera
-focal_length = 20
+# Camera properties
+focal_length = 0.005
+
+cam_pos = [0, 0, 0]
+
+# Control properties
+mouse_sens = 0.1
 
 # Open OBJ
 with open(path, "r") as f:
@@ -28,8 +35,11 @@ with open(path, "r") as f:
             
             vertex = []
             
+            i = 0
+            
             for substring in line.split(" ")[1:]:
-                vertex.append(float(substring) + offset)
+                vertex.append(float(substring) + offset + cam_pos[i])
+                i += 1
             
             vertices_obj.append(vertex)
             
@@ -39,7 +49,6 @@ with open(path, "r") as f:
 
         if line[0] == "f":
             # line is a face
-            
             face = []
             
             for substring in line.split(" ")[1:]:
@@ -48,42 +57,55 @@ with open(path, "r") as f:
 
 scale = int(input("What scale?"))
 
+# Rotate vertex
 def rotate_vertex(vert, axis, deg):
     rot_x = [
         [1, 0, 0],
-        [0, math.cos(deg), -math.sin(deg)],
-        [0, math.sin(deg), math.cos(deg)]
+        [0, math.cos(deg[0]), -math.sin(deg[0])],
+        [0, math.sin(deg[0]), math.cos(deg[0])]
     ]
     
     rot_y = [
-        [math.cos(deg), 0, math.sin(deg)],
+        [math.cos(deg[1]), 0, math.sin(deg[1])],
         [0, 1, 0],
-        [-math.sin(deg), 0, math.cos(deg)]
+        [-math.sin(deg[1]), 0, math.cos(deg[1])]
     ]
     
     rot_z = [
-        [math.cos(deg), -math.sin(deg), 0],
-        [math.sin(deg), math.cos(deg), 0],
+        [math.cos(deg[2]), -math.sin(deg[2]), 0],
+        [math.sin(deg[2]), math.cos(deg[2]), 0],
         [0, 0, 1]
     ]
     
     rot = []
     
-    if axis == "x":
-        rot = rot_x
-    elif axis == "y":
-        rot = rot_y
-    elif axis == "z":
-        rot = rot_z
-    
     new_coordinates = [0, 0, 0]
+    for a in range(len(axis)):
     
-    for i in range(2):
-        new_coordinates[i] = rot[i][0] * vert[0] + rot[i][1] * vert[1] + rot[i][2] * vert[2]
+        if axis[a] == "x":
+            rot = rot_x
+        elif axis[a] == "y":
+            rot = rot_y
+        elif axis[a] == "z":
+            rot = rot_z
+        
+        for i in range(2):
+            new_coordinates[i] = rot[i][0] * vert[0] + rot[i][1] * vert[1] + rot[i][2] * vert[2]
     
     return new_coordinates
-    
-def draw_frame(faces):
+
+# Rotate object
+def rotate_object(axis, deg):
+    faces_rot = []
+
+    for f in range(len(faces_obj)):
+        for v in range(len(faces_obj[f])):
+            face_rot.append(rotate_vertex(faces_obj[f][v], axis, deg))
+        faces_rot.append(face_rot)
+    return faces_rot
+
+# Draw a frame
+def draw_frame(faces, rotation=(0, 0, 0)):
     img = Image.new("RGB", (1920, 1080))
     draw = ImageDraw.Draw(img)
     
@@ -94,11 +116,11 @@ def draw_frame(faces):
         
         for vertex in face:
             
-            x = vertex[0] + offset
-            y = vertex[1] + offset
-            z = vertex[2] + offset
+            x = rotate_vertex(vertex, "xy", rotation)[0] + offset - cam_pos[0]
+            y = rotate_vertex(vertex, "yz", rotation)[1] + offset - cam_pos[1]
+            z = rotate_vertex(vertex, "xz", rotation)[2] + offset - cam_pos[2]
 
-            vertex_projected_screen = (((((focal_length * x) / (focal_length + z))) * scale) + 1920 / 2, (((focal_length * y) / (focal_length + z)) * scale + 1080 / 2))
+            vertex_projected_screen = ((((x / (focal_length /z))) * scale) + 1920 / 2, ((y / (focal_length / z)) * scale + 1080 / 2))
             
             face_projected.append(vertex_projected_screen)
             
@@ -132,51 +154,52 @@ def draw_frame(faces):
     
     projected_faces = sorted(projected_faces, key=lambda x:x[len(x) - 1], reverse=True)
     
-    draw_faces = True
-    
-    # Render faces
+    # Prep faces array
     for i in range(len(projected_faces)):
         projected_faces[i].pop(len(projected_faces[i]) - 1)
-        if draw_faces:
-            shade = int(i / len(projected_faces) * 255 + 10)
-    
-            draw.polygon(projected_faces[i], fill=(shade, shade, shade))
     
     # Render lines
     for face in projected_faces:
-    
+        
         for i in range(1, len(face)):
-            draw.line((face[i - 1][0], face[i - 1][1], face[i][0], face[i][1]), fill=(255, 255, 255))
+            pygame.draw.line(screen, "white", (face[i - 1][0], face[i - 1][1]), (face[i][0], face[i][1]))
     
     draw_points = True
     point_radius = 2
     
+    # Render points
     if draw_points:
         for face in projected_faces:
             for vertex_projected in face:
-                draw.ellipse((vertex_projected[0] - point_radius, vertex_projected[1] - point_radius, vertex_projected[0] + point_radius, vertex_projected[1] + point_radius), fill=(255,255,255))
+                pygame.draw.circle(screen, "white", vertex_projected, 5)
     
     img = ImageOps.flip(img)
     return img
-    
-def rotate_object(axis, deg):
-    faces_rot = []
 
-    for f in range(len(faces_obj)):
-        face_rot = []
-        
-        for v in range(len(faces_obj[f])):
-            face_rot.append(rotate_vertex(faces_obj[f][v], axis, deg))
-        faces_rot.append(face_rot)
-    return faces_rot
+current_faces = faces_obj
 
-gif_frames = []
+# pygame setup
+pygame.init()
+screen = pygame.display.set_mode((1920, 1080))
+clock = pygame.time.Clock()
+running = True
 
-gif_fps = int(input("FPS?\n"))
+while running:
+    # poll for events
+    # pygame.QUIT event means the user clicked X to close your window
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False
 
-for i in range(gif_fps):
-    gif_frames.append(draw_frame(rotate_object("y", i * (360 / gif_fps))))
+    # fill the screen with a color to wipe away anything from last frame
+    screen.fill("black")
 
+    # Draw a frame
+    draw_frame(current_faces, rotation=(0, pygame.mouse.get_pos()[0] * -mouse_sens, pygame.mouse.get_pos()[1] * mouse_sens))
 
+    # flip() the display to put your work on screen
+    pygame.display.flip()
 
-gif_frames[0].save('out.gif', save_all=True, append_images=gif_frames[1:], duration= 1000/ gif_fps, loop=0)
+    clock.tick(60)  # limits FPS to 60
+
+pygame.quit()
