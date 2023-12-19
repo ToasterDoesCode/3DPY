@@ -53,13 +53,10 @@ def rotate_project_vertex(vert, deg, origin):
     ]
     
     # Combine the matrices by multiplying them together
-    rot = np.array(x_rot) @ np.array(y_rot) @ np.array(z_rot)
-    
-    # Project
-    projected_vector = np.subtract(np.array(vert), np.array(origin)) @ rot
+    rotated_vector = np.array(x_rot) @ np.array(y_rot) @ (np.subtract(vert, origin))
     
     # Transform to screen coordinates and return
-    return [(((cam_plane[2] / projected_vector[2]) * projected_vector[0] + cam_plane[0]) * scale) + screen_width / 2, (((cam_plane[2] / projected_vector[2]) * projected_vector[1] + cam_plane[1]) * scale) + screen_height / 2]
+    return [(((cam_plane[2] / rotated_vector[2]) * rotated_vector[0] + cam_plane[0]) * scale) + screen_width / 2, (((cam_plane[2] / rotated_vector[2]) * rotated_vector[1] + cam_plane[1]) * scale) + screen_height / 2]
 
 # Read an OBJ
 def read_obj(path):
@@ -108,21 +105,17 @@ def draw_frame(faces):
             projected_vertex = rotate_project_vertex(vertex, cam_rot, cam_pos)
             projected_vertices.append(projected_vertex)
             
+            current_projected_face.append(projected_vertex)
             
+            pygame.draw.circle(screen, display_foreground, projected_vertex, 5)
         
         # Draw face
         #pygame.draw.polygon(screen, display_foreground, current_projected_face)
-
-    vertex_depths = []
     
-    # Draw
-    for face in faces:
-        for vertex in face:
-            # Get vertex depth
-            vertex_depths.append(math.sqrt((vertex[0] - cam_pos[0]) ** 2) + (vertex[1] - cam_pos[1]) ** 2 + (vertex[2] - cam_pos[2]) ** 2)
-    
-    for vertex in sorted(projected_vertices, key=lambda x : vertex_depths[projected_vertices.index(x)]):
-        pygame.draw.circle(screen, display_foreground, vertex, 5)
+    # Draw grid
+    for x in range(-10, 10):
+        for y in range(-10, 10):
+            pygame.draw.circle(screen, display_grid, rotate_project_vertex([x, 0, y], cam_rot, cam_pos), 3)
     
 # Set up pygame
 pygame.init()
@@ -141,17 +134,13 @@ while running:
         # Key presses
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_w:
-                cam_pos[0] -= math.sin(cam_rot[0]) * math.cos(cam_rot[1])
-                cam_pos[1] -= math.sin(cam_rot[0]) * math.sin(cam_rot[1])
-                cam_pos[2] -= math.cos(cam_rot[0])
+                cam_pos[0] -= math.sin(cam_rot[1]) * math.cos(cam_rot[0])
+                cam_pos[1] -= math.sin(cam_rot[1]) * math.sin(cam_rot[0])
+                cam_pos[2] += math.cos(cam_rot[1])
             if event.key == pygame.K_s:
-                cam_pos[0] += math.sin(cam_rot[0]) * math.cos(cam_rot[1])
-                cam_pos[1] += math.sin(cam_rot[0]) * math.sin(cam_rot[1])
-                cam_pos[2] += math.cos(cam_rot[0])
-            if event.key == pygame.K_a:
-                cam_pos[1] -= math.sin(cam_rot[0]) * math.cos(cam_rot[1])
-                cam_pos[0] -= math.sin(cam_rot[0]) * math.sin(cam_rot[1])
-                cam_pos[2] -= math.cos(cam_rot[0])
+                cam_pos[0] += math.sin(cam_rot[1]) * math.cos(cam_rot[0])
+                cam_pos[1] += math.sin(cam_rot[1]) * math.sin(cam_rot[0])
+                cam_pos[2] -= math.cos(cam_rot[1])
             
             if event.key == pygame.K_UP:
                 cam_rot[0] -= 5
@@ -165,13 +154,20 @@ while running:
         if event.type == pygame.MOUSEWHEEL:
             cam_plane[2] += event.y
     
-    # PROBLEM: Roll (Z component of cam_rot) is unknown, need to calculate it somehow.
-    cam_rot[0] = math.radians(pygame.mouse.get_pos()[0] / 2)
-    cam_rot[1] = math.radians(-pygame.mouse.get_pos()[1] / 2)
+    # Update camera rotation based on mouse position
+    cam_rot[0] = math.radians(pygame.mouse.get_pos()[1] - screen_height / 2)
+    cam_rot[1] = math.radians(-pygame.mouse.get_pos()[0] - screen_width / 2)
+    
+    # Limit pitch
+    if cam_rot[0] > 1.39626:
+        cam_rot[0] = 1.39626
+    elif cam_rot[0] < -1.39626:
+        cam_rot[0] = -1.39626
     
     # Refresh screen
     screen.fill(display_background)
-
+    
+    # Draw the frame
     draw_frame(obj_faces)
 
     # Draw to screen
